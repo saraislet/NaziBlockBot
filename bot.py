@@ -47,6 +47,7 @@ class StdOutListener( StreamListener ):
             print("DM from " + dm['sender_screen_name'] + ": \"" + dm['text'] + "\"")
             global result
             result = insert_receipt(dm)
+            print(result)
             sys.exit()
         
         return True
@@ -71,6 +72,8 @@ def insert_receipt(dm):
     parsed_text = parse_url_from_text(contents)
     text = parsed_text[0]
     tweet_url = parsed_text[1]
+    
+    # Test if the URL the DM is a Twitter Status, then pull data from API.
     if verify_twitter_url(tweet_url):
         status = get_tweet_from_url(tweet_url)
         twitter_id = status.user.id
@@ -79,26 +82,59 @@ def insert_receipt(dm):
         tweet = unshorten_urls_in_text(status.full_text)
         tweet_text = remove_ats(tweet)
     
+    # Test if the sender is a blocklist admin.
+    if verify_blocklist_admin(sender_id, recipient_id):
+        approved_by_id = sender_id
+    else:
+        approved_by_id = None
+    
     connection = db_connect()
     
     try:
         with connection.cursor() as cursor:
             # Create a new record in receipts table
-            sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id))
+            sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id))
     
         # Commit to save changes
         connection.commit()
     
         with connection.cursor() as cursor:
             # Read a single record
-            sql = "SELECT `id` FROM `receipts` WHERE `twitter_id`=%s AND `blocklist_id`=%s LIMIT 1"
+            sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s LIMIT 1"
             cursor.execute(sql, (sender_id,recipient_id,))
             result = cursor.fetchone()
-            return "Successfully inserted DM into receipts database, id " + str(result)
+            return "Successfully inserted DM into receipts database, id " + str(result['id'])
                 
     except BaseException as e:
         return "Error in insert_receipt()"
+
+    finally:
+        connection.close()
+
+
+def verify_blocklist_admin(twitter_id, blocklist_id):
+    # Return true iff twitter_id, blocklist_id is listed in blocklist_admin table.
+    
+    connection = db_connect()
+    
+    try:    
+        with connection.cursor() as cursor:
+            # Read a single record
+            sql = "SELECT `id` FROM `blocklist_admins` WHERE `admin_id`=%s AND `blocklist_id`=%s LIMIT 1"
+            cursor.execute(sql, (twitter_id, blocklist_id,))
+            result = cursor.fetchone()
+            
+            # If a matching record exists, return true, otherwise return false.
+            if result == None:
+                print("Sender is not a blocklist admin.")
+                return False
+            else:
+                print("Sender is a blocklist admin.")
+                return True
+                
+    except BaseException as e:
+        print("Error in verify_blocklist_admin()")
 
     finally:
         connection.close()
