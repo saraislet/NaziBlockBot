@@ -5,11 +5,11 @@ Created on Thu Oct  5 16:50:36 2017
 @author: Sarai
 """
 
-import json, sys, re, requests
+import json, sys, re, requests, datetime
 import tweepy
 from tweepy.streaming import StreamListener
 import pymysql.cursors
-import config_local as config  
+import config_local as config
 
 def db_connect():
     # Connect to the database
@@ -73,9 +73,14 @@ def insert_receipt(dm):
     text = parsed_text[0]
     tweet_url = parsed_text[1]
     
+    # Get API to send to methods below
+    api = get_api()
+    connection = db_connect()
+
+    
     # Test if the URL the DM is a Twitter Status, then pull data from API.
     if verify_twitter_url(tweet_url):
-        status = get_tweet_from_url(tweet_url)
+        status = get_tweet_from_url(tweet_url, api)
         twitter_id = status.user.id
         screen_name = status.user.screen_name
         name = status.user.name
@@ -83,13 +88,14 @@ def insert_receipt(dm):
         tweet_text = remove_ats(tweet)
     
     # Test if the sender is a blocklist admin.
-    if verify_blocklist_admin(sender_id, recipient_id):
+    if verify_blocklist_admin(sender_id, recipient_id, connection):
         approved_by_id = sender_id
     else:
         approved_by_id = None
     
-    connection = db_connect()
-    
+    # Add the twitter account to the accounts table.
+    add_account(twitter_id, connection, api)
+        
     try:
         with connection.cursor() as cursor:
             # Create a new record in receipts table
@@ -107,17 +113,87 @@ def insert_receipt(dm):
             return "Successfully inserted DM into receipts database, id " + str(result['id'])
                 
     except BaseException as e:
-        return "Error in insert_receipt()"
+        return "Error in insert_receipt()" + e
 
     finally:
         connection.close()
 
 
-def verify_blocklist_admin(twitter_id, blocklist_id):
-    # Return true iff twitter_id, blocklist_id is listed in blocklist_admin table.
+def add_account(twitter_id, connection, api):
+    # Test if account is in the database ,then add or update if necessary.    
+    try:    
+        with connection.cursor() as cursor:
+            # Read a single record
+            sql = "SELECT `twitter_id` FROM `accounts` WHERE `twitter_id`=%s LIMIT 1"
+            cursor.execute(sql, (twitter_id,))
+            result = cursor.fetchone()
+            
+            # If a matching record exists, return true, otherwise return false.
+            if result == None:
+                print("Account is not in the database. Inserting new row.")
+                insert_account(twitter_id, connection, api)
+            else:
+                print("Account is in the database. Updating details.")
+                update_account(twitter_id, connection, api)
+                
+    except BaseException as e:
+        print("Error in add_account()", e)
+
+
+def insert_account(twitter_id, connection, api):
+    # Pull account details from API and insert into accounts table.
+    userdata = api.get_user(twitter_id)
+    name = userdata.name
+    screen_name = userdata.screen_name
+    description = userdata.description
+    url = unshorten_url(userdata.url)
     
-    connection = db_connect()
+    try:
+        with connection.cursor() as cursor:
+            # Create a new record in accounts table
+            sql = "INSERT INTO `accounts` (`twitter_id`, `name`, `screen_name`, `description`, `url`, `date_updated`) VALUES (%s, %s, %s, %s, %s, %s)"
+            cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now(),))
+        
+            # Commit to save changes
+            connection.commit()
     
+            print("Successfully inserted @" + screen_name + " into accounts table.")
+
+    except BaseException as e:
+        print("Error in insert_account()", e)
+
+def update_account(twitter_id, connection, api):
+    # Test if account should be updated, and update if necessary.
+    try:
+        with connection.cursor() as cursor:
+            # Read a single record
+            sql = "SELECT `date_updated` FROM `accounts` WHERE `twitter_id`=%s LIMIT 1"
+            cursor.execute(sql, (twitter_id,))
+            result = cursor.fetchone()
+            date_updated = result['date_updated']
+            
+            # If difference between now() and date_updated is more than 1 day, update
+            if (datetime.datetime.now().timestamp() - date_updated)/60/60/24 > 1:
+                userdata = api.get_user(twitter_id)
+                name = userdata.name
+                screen_name = userdata.screen_name
+                description = userdata.description
+                url = unshorten_url(userdata.url)
+                
+                with connection.cursor() as cursor:
+                    # Update a record in accounts table
+                    sql = "UPDATE `accounts` SET `name` = %s, `screen_name` = %s, `description` = %s, `url` = %s, `date_updated` = %s"
+                    cursor.execute(sql, (name, screen_name, description, url, datetime.datetime.now().timestamp(),))
+                    print("Successfully updated @" + screen_name + " from accounts table.")
+        
+                # Commit to save changes
+                connection.commit()
+    
+    except BaseException as e:
+        print("Error in update_account()", e)
+
+def verify_blocklist_admin(twitter_id, blocklist_id, connection):
+    # Return true iff twitter_id, blocklist_id is listed in blocklist_admin table.    
     try:    
         with connection.cursor() as cursor:
             # Read a single record
@@ -134,10 +210,7 @@ def verify_blocklist_admin(twitter_id, blocklist_id):
                 return True
                 
     except BaseException as e:
-        print("Error in verify_blocklist_admin()")
-
-    finally:
-        connection.close()
+        print("Error in verify_blocklist_admin()", e)
 
 
 def verify_twitter_url(url):
@@ -150,13 +223,8 @@ def verify_twitter_url(url):
         return False
 
 
-def get_tweet_from_url(url):
-    # Pull twitter status details from API and return dictionary.
-    auth = tweepy.OAuthHandler(config.consumer_key, config.consumer_secret)
-    auth.secure = True
-    auth.set_access_token(config.access_token, config.access_token_secret)
-    api = tweepy.API(auth)
-    
+def get_tweet_from_url(url, api):
+    # Match ID from Twitter status URL and return status object.   
     status_id = re.sub(r'https://twitter\.com/.+/status/(\d+)', r'\1', url)
     
     # Extended tweet mode returns full text without truncation.
@@ -179,14 +247,20 @@ def parse_url_from_text(string):
 
 def unshorten_url(url):
     # Return expanded URL (or same URL if not a redirect)
-    return requests.head(url, allow_redirects=True).url
+    if url == None:
+        return None
+    else:
+        return requests.head(url, allow_redirects=True).url
 
 
 def unshorten_url_re(url):
     # Return expanded URL from regex match.
     # Unclear how to combine this with previous function nontrivially.
     # This works for now.
-    return requests.head(url.group(), allow_redirects=True).url
+    if url == None:
+        return None
+    else:
+        return requests.head(url.group(), allow_redirects=True).url
 
 
 def unshorten_urls_in_text(string):
@@ -198,6 +272,14 @@ def remove_ats(tweet):
     # Remove any leading @s (e.g., replies) from a tweet.
     # Any @ that is not at the beginning of a tweet will be left.
     return re.sub(r'^(@\S+\s)*', "", tweet)
+
+
+def get_api():
+    # Return tweepy oauth api
+    auth = tweepy.OAuthHandler(config.consumer_key, config.consumer_secret)
+    auth.secure = True
+    auth.set_access_token(config.access_token, config.access_token_secret)
+    return tweepy.API(auth)
 
 
 def main():
