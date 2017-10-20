@@ -1,1 +1,1 @@
-web: gunicorn bot:app --error-logfile=- --access-logfile=-
+web: python boy.py runserver --error-logfile=- --access-logfile=-
