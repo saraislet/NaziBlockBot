@@ -1,1 +1,1 @@
-web: python bot.py runserver
+worker: python bot.py runserver

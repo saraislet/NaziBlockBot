@@ -1,1 +1,1 @@
-web: python bot.py runserver --error-logfile=- --access-logfile=-
+worker: python bot.py runserver --error-logfile=- --access-logfile=-
