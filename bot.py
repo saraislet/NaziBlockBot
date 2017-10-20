@@ -53,7 +53,7 @@ class StdOutListener( StreamListener ):
             global result
             result = insert_receipt(dm)
             print(result)
-            sys.exit()
+#            sys.exit()
         
         return True
 
