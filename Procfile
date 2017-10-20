@@ -1,1 +1,1 @@
-web: python boy.py runserver --error-logfile=- --access-logfile=-
+web: python bot.py runserver --error-logfile=- --access-logfile=-
