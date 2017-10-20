@@ -5,18 +5,23 @@ Created on Thu Oct  5 16:50:36 2017
 @author: Sarai
 """
 
-import json, sys, re, requests, datetime
+import json, os, sys, re, requests, datetime
 import tweepy
 from tweepy.streaming import StreamListener
 import pymysql.cursors
-import config_local as config
+#import config_local as config
+
+consumer_key = os.environ['consumer_key']
+consumer_secret = os.environ['consumer_secret']
+access_token = os.environ['access_token']
+access_token_secret = os.environ['access_token_secret']
 
 def db_connect():
     # Connect to the database
-    connection = pymysql.connect(host = config.host,
-                                 user = config.user,
-                                 password = config.password,
-                                 db = config.database,
+    connection = pymysql.connect(host = os.environ['host'],
+                                 user = os.environ['user'],
+                                 password = os.environ['password'],
+                                 db = os.environ['database'],
                                  charset = 'utf8mb4',
                                  cursorclass = pymysql.cursors.DictCursor)
     
@@ -86,6 +91,8 @@ def insert_receipt(dm):
         name = status.user.name
         tweet = unshorten_urls_in_text(status.full_text)
         tweet_text = remove_ats(tweet)
+        date_of_tweet = status.created_at
+        date_added = datetime.datetime.now().timestamp()
     
     # Test if the sender is a blocklist admin.
     if verify_blocklist_admin(sender_id, recipient_id, connection):
@@ -99,8 +106,8 @@ def insert_receipt(dm):
     try:
         with connection.cursor() as cursor:
             # Create a new record in receipts table
-            sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id))
+            sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added))
     
         # Commit to save changes
         connection.commit()
@@ -276,18 +283,18 @@ def remove_ats(tweet):
 
 def get_api():
     # Return tweepy oauth api
-    auth = tweepy.OAuthHandler(config.consumer_key, config.consumer_secret)
+    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.secure = True
-    auth.set_access_token(config.access_token, config.access_token_secret)
+    auth.set_access_token(access_token, access_token_secret)
     return tweepy.API(auth)
 
 
 def main():
 
     try:
-        auth = tweepy.OAuthHandler(config.consumer_key, config.consumer_secret)
+        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
         auth.secure = True
-        auth.set_access_token(config.access_token, config.access_token_secret)
+        auth.set_access_token(access_token, access_token_secret)
 
         api = tweepy.API(auth)
 
