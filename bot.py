@@ -250,7 +250,7 @@ def parse_url_from_text(string):
     # Return an array with text and url from the string of a DM.
     
     # Match any URL beginning "http" at the end of string text.
-    match = re.match(r'(.*)\s(http\S*)$', string)
+    match = re.match(r'(.?)\s?(http\S*)$', string)
 
     if match != None:
         text = match.group(1)
