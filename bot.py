@@ -89,7 +89,9 @@ def insert_receipt(dm):
     # Test if DM contains a Twitter Status, then pull data from API.
     if verify_twitter_url(tweet_url) == False:
         #Handle tweets without URLs
-        return "Tweet does not contain a Twitter status URL."
+        output = "Tweet does not contain a Twitter status URL."
+        output += " URL is \"" + tweet_url + "\" "
+        return output
     else:
         status = get_tweet_from_url(tweet_url, api)
         twitter_id = status.user.id
