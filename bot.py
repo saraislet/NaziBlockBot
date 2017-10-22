@@ -5,7 +5,7 @@ Created on Thu Oct  5 16:50:36 2017
 @author: Sarai
 """
 
-import json, os, sys, re, requests, datetime
+import json, os, re, requests, datetime
 import tweepy
 from tweepy.streaming import StreamListener
 import pymysql.cursors
@@ -49,11 +49,9 @@ class StdOutListener( StreamListener ):
         dm = json.loads(status).get('direct_message')
         
         if dm != None:
-            print("DM from " + dm['sender_screen_name'] + ": \"" + dm['text'] + "\"")
-            global result
+            print("DM from " + dm['sender_screen_name'] + ": \"" + unshorten_urls_in_text(dm['text']) + "\"")
             result = insert_receipt(dm)
             print(result)
-#            sys.exit()
         
         return True
 
@@ -82,9 +80,17 @@ def insert_receipt(dm):
     api = get_api()
     connection = db_connect()
 
-    
-    # Test if the URL the DM is a Twitter Status, then pull data from API.
-    if verify_twitter_url(tweet_url):
+    # Test if the sender is a blocklist admin.
+    if verify_blocklist_admin(sender_id, recipient_id, connection):
+        approved_by_id = sender_id
+    else:
+        approved_by_id = None
+        
+    # Test if DM contains a Twitter Status, then pull data from API.
+    if verify_twitter_url(tweet_url) == False:
+        #Handle tweets without URLs
+        return "Tweet does not contain a Twitter status URL."
+    else:
         status = get_tweet_from_url(tweet_url, api)
         twitter_id = status.user.id
         screen_name = status.user.screen_name
@@ -92,42 +98,36 @@ def insert_receipt(dm):
         tweet = unshorten_urls_in_text(status.full_text)
         tweet_text = remove_ats(tweet)
         date_of_tweet = status.created_at
-        date_added = datetime.datetime.now().timestamp()
-    
-    # Test if the sender is a blocklist admin.
-    if verify_blocklist_admin(sender_id, recipient_id, connection):
-        approved_by_id = sender_id
-    else:
-        approved_by_id = None
-    
-    # Add the twitter account to the accounts table.
-    add_account(twitter_id, connection, api)
+        date_added = datetime.datetime.now()
+
+        # Add or update the twitter account in the accounts table.
+        check_account(twitter_id, connection, api)
         
-    try:
-        with connection.cursor() as cursor:
-            # Create a new record in receipts table
-            sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added))
-    
-        # Commit to save changes
-        connection.commit()
-    
-        with connection.cursor() as cursor:
-            # Read a single record
-            sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s LIMIT 1"
-            cursor.execute(sql, (sender_id,recipient_id,))
-            result = cursor.fetchone()
-            return "Successfully inserted DM into receipts database, id " + str(result['id'])
+        try:
+            with connection.cursor() as cursor:
+                # Create a new record in receipts table
+                sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added))
+        
+            # Commit to save changes
+            connection.commit()
+        
+            with connection.cursor() as cursor:
+                # Read a single record
+                sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s LIMIT 1"
+                cursor.execute(sql, (sender_id,recipient_id,))
+                result = cursor.fetchone()
+                return "Successfully inserted DM into receipts database, id " + str(result['id'])
                 
-    except BaseException as e:
-        return "Error in insert_receipt()" + e
+        except BaseException as e:
+            return "Error in insert_receipt()" + e
 
-    finally:
-        connection.close()
+        finally:
+            connection.close()
 
 
-def add_account(twitter_id, connection, api):
-    # Test if account is in the database ,then add or update if necessary.    
+def check_account(twitter_id, connection, api):
+    # Test if account is in the database ,then insert or update if necessary.    
     try:    
         with connection.cursor() as cursor:
             # Read a single record
@@ -142,9 +142,11 @@ def add_account(twitter_id, connection, api):
             else:
                 print("Account is in the database. Updating details.")
                 update_account(twitter_id, connection, api)
+            return
                 
     except BaseException as e:
         print("Error in add_account()", e)
+        return
 
 
 def insert_account(twitter_id, connection, api):
@@ -165,9 +167,11 @@ def insert_account(twitter_id, connection, api):
             connection.commit()
     
             print("Successfully inserted @" + screen_name + " into accounts table.")
+            return
 
     except BaseException as e:
         print("Error in insert_account()", e)
+        return
 
 def update_account(twitter_id, connection, api):
     # Test if account should be updated, and update if necessary.
@@ -195,9 +199,11 @@ def update_account(twitter_id, connection, api):
         
                 # Commit to save changes
                 connection.commit()
+        return
     
     except BaseException as e:
         print("Error in update_account()", e)
+        return
 
 def verify_blocklist_admin(twitter_id, blocklist_id, connection):
     # Return true iff twitter_id, blocklist_id is listed in blocklist_admin table.    
@@ -261,7 +267,7 @@ def unshorten_url(url):
 
 
 def unshorten_url_re(url):
-    # Return expanded URL from regex match.
+    # Return expanded URL from regex matches.
     # Unclear how to combine this with previous function nontrivially.
     # This works for now.
     if url == None:
