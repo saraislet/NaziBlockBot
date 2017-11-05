@@ -72,8 +72,8 @@ def insert_receipt(dm):
     sender_id = dm['sender_id']
     recipient_id = dm['recipient_id']
     contents = dm['text']
-    parsed_text = parse_url_from_text(contents)
-    text = parsed_text[0]
+    parsed_text = parse_end_url_from_text(contents)
+#    text = parsed_text[0]
     tweet_url = parsed_text[1]
     
     # Get API to send to methods below
@@ -87,7 +87,7 @@ def insert_receipt(dm):
         approved_by_id = None
         
     # Test if DM contains a Twitter Status, then pull data from API.
-    if verify_twitter_url(tweet_url) == False:
+    if verify_twitter_status_url(tweet_url) == False:
         #Handle tweets without URLs
         output = "Tweet does not contain a Twitter status URL."
         output += " URL is \"" + tweet_url + "\" "
@@ -228,9 +228,9 @@ def verify_blocklist_admin(twitter_id, blocklist_id, connection):
         print("Error in verify_blocklist_admin()", e)
 
 
-def verify_twitter_url(url):
+def verify_twitter_status_url(url):
     # Verify that a URL belongs to a Twitter status
-    match = re.match(r'https://twitter\.com/.+/status/\d+', url)
+    match = re.match(r'https://twitter\.com/[a-zA-Z0-9_]{1,15}/status/\d+', url)
     
     if match != None:
         return True
@@ -240,13 +240,13 @@ def verify_twitter_url(url):
 
 def get_tweet_from_url(url, api):
     # Match ID from Twitter status URL and return status object.   
-    status_id = re.sub(r'https://twitter\.com/.+/status/(\d+)', r'\1', url)
+    status_id = re.sub(r'https://twitter\.com/[a-zA-Z0-9_]{1,15}/status/(\d+).*', r'\1', url)
     
     # Extended tweet mode returns full text without truncation.
     return api.get_status(status_id, tweet_mode='extended')    
 
 
-def parse_url_from_text(string):
+def parse_end_url_from_text(string):
     # Return an array with text and url from the string of a DM.
     
     # Match any URL beginning "http" at the end of string text.
