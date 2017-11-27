@@ -43,7 +43,6 @@ class StdOutListener( StreamListener ):
         print("Entered on_data()")
         global current_status
         current_status = status
-#        print(status, flush = True)
         
         global dm
         dm = json.loads(status).get('direct_message')
@@ -101,6 +100,10 @@ def insert_receipt(dm):
         tweet_text = remove_ats(tweet)
         date_of_tweet = status.created_at
         date_added = datetime.datetime.now()
+        
+        #TODO: add status_id to db, 
+        #   store status.id as status_id, and stop storing URL,
+        #   and construct URL from status_id on front-end of Receiptacle
 
         # Add or update the twitter account in the accounts table.
         check_account(twitter_id, connection, api)
@@ -195,8 +198,9 @@ def update_account(twitter_id, connection, api):
                 
                 with connection.cursor() as cursor:
                     # Update a record in accounts table
-                    sql = "UPDATE `accounts` SET `name` = %s, `screen_name` = %s, `description` = %s, `url` = %s, `date_updated` = %s"
-                    cursor.execute(sql, (name, screen_name, description, url, datetime.datetime.now().timestamp(),))
+                    sql = "UPDATE `accounts` WHERE `twitter_id`=%s LIMIT 1"
+                    sql += " SET `name` = %s, `screen_name` = %s, `description` = %s, `url` = %s, `date_updated` = %s"
+                    cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now().timestamp(),))
                     print("Successfully updated @" + screen_name + " from accounts table.")
         
                 # Commit to save changes
