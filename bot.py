@@ -49,8 +49,7 @@ class StdOutListener( StreamListener ):
         
         if dm != None:
             print("DM from " + dm['sender_screen_name'] + ": \"" + unshorten_urls_in_text(dm['text']) + "\"")
-            result = insert_receipt(dm)
-            print(result)
+            insert_receipt(dm)
         
         return True
 
@@ -94,6 +93,7 @@ def insert_receipt(dm):
         output = "Tweet does not contain a Twitter status URL."
         output += " URL is \"" + tweet_url + "\" "
         return output
+    
     else:
         status = get_tweet_from_url(tweet_url, api)
         status_id = status.id
@@ -140,7 +140,8 @@ def insert_receipt(dm):
                 print("approved_by_id is \"" + str(approved_by_id) + "\"; receipt must be approved manually.")
                 
         except BaseException as e:
-            return "Error in insert_receipt()" + e
+            print("Error in insert_receipt()", e)
+            return
 
         finally:
             connection.close()
