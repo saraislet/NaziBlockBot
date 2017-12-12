@@ -118,7 +118,7 @@ def insert_receipt(dm):
                 # TODO: Check the db for this receipt with this blocklist before creating it.
                 # TODO: If multiple blocklists have receipts for the same status,
                 #   keep all receipts, but display them together? How to handle?
-                sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`, `status_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`, `status_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                 cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added, status_id))
         
             # Commit to save changes
@@ -165,7 +165,7 @@ def check_account(twitter_id, connection, api):
             return
                 
     except BaseException as e:
-        print("Error in add_account()", e)
+        print("Error in check_account()", e)
         return
 
 
