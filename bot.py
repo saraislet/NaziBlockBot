@@ -134,7 +134,7 @@ def insert_receipt(dm):
                 print("Successfully inserted DM into receipts database, id " + str(result['id']) )
                 
                 message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name
-                api.send_direct_message(sender_id, message)
+                api.send_direct_message(sender_id, text=message)
             
             # Create the block.
             # Note that the block creation _must_ come after successful receipt insertion!
