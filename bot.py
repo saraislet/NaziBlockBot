@@ -129,7 +129,7 @@ def insert_receipt(dm):
                 sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s ORDER BY `id` DESC LIMIT 1"
                 cursor.execute(sql, (sender_id,recipient_id,))
                 result = cursor.fetchone()
-                return "Successfully inserted DM into receipts database, id " + str(result['id'])
+                print("Successfully inserted DM into receipts database, id " + str(result['id']) )
             
             # Create the block.
             # Note that the block creation _must_ come after successful receipt insertion!
@@ -144,6 +144,7 @@ def insert_receipt(dm):
 
         finally:
             connection.close()
+            return
 
 
 def check_account(twitter_id, connection, api):
