@@ -135,6 +135,8 @@ def insert_receipt(dm):
             if approved_by_id is not None:
                 api.create_block(twitter_id)
                 print("Successfully blocked @" + screen_name)
+            else:
+                print("approved_by_id is \"" + str(approved_by_id) + "\"; receipt must be approved manually.")
                 
         except BaseException as e:
             return "Error in insert_receipt()" + e
@@ -201,7 +203,7 @@ def update_account(twitter_id, connection, api):
             date_updated = result['date_updated']
             
             # If difference between now() and date_updated is more than 1 day, update
-            if (datetime.datetime.now().timestamp() - date_updated)/60/60/24 > 1:
+            if (datetime.datetime.now().timestamp() - date_updated.total_seconds())/60/60/24 > 1:
                 userdata = api.get_user(twitter_id)
                 name = userdata.name
                 screen_name = userdata.screen_name
@@ -212,7 +214,7 @@ def update_account(twitter_id, connection, api):
                     # Update a record in accounts table
                     sql = "UPDATE `accounts` WHERE `twitter_id`=%s LIMIT 1"
                     sql += " SET `name` = %s, `screen_name` = %s, `description` = %s, `url` = %s, `date_updated` = %s"
-                    cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now().timestamp(),))
+                    cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now(),))
                     print("Successfully updated @" + screen_name + " from accounts table.")
         
                 # Commit to save changes
