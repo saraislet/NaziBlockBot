@@ -16,6 +16,8 @@ consumer_secret = os.environ['consumer_secret']
 access_token = os.environ['access_token']
 access_token_secret = os.environ['access_token_secret']
 
+host = "https://young-meadow-72614.herokuapp.com"
+
 def db_connect():
     # Connect to the database
     connection = pymysql.connect(host = os.environ['host'],
@@ -130,6 +132,9 @@ def insert_receipt(dm):
                 cursor.execute(sql, (sender_id,recipient_id,))
                 result = cursor.fetchone()
                 print("Successfully inserted DM into receipts database, id " + str(result['id']) )
+                
+                message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name
+                api.send_direct_message(sender_id, message)
             
             # Create the block.
             # Note that the block creation _must_ come after successful receipt insertion!
