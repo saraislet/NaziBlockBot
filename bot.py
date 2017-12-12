@@ -67,6 +67,8 @@ class StdOutListener( StreamListener ):
 
 
 def insert_receipt(dm):
+    # TODO: Improve error handling here.
+    
     # Insert DM contents into DB receipts table
     sender_id = dm['sender_id']
     recipient_id = dm['recipient_id']
@@ -82,6 +84,7 @@ def insert_receipt(dm):
     # Test if the sender is a blocklist admin.
     if verify_blocklist_admin(sender_id, recipient_id, connection):
         approved_by_id = sender_id
+        
     else:
         approved_by_id = None
         
@@ -111,6 +114,9 @@ def insert_receipt(dm):
         try:
             with connection.cursor() as cursor:
                 # Create a new record in receipts table
+                # TODO: Check the db for this receipt with this blocklist before creating it.
+                # TODO: If multiple blocklists have receipts for the same status,
+                #   keep all receipts, but display them together? How to handle?
                 sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                 cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added))
         
@@ -123,6 +129,12 @@ def insert_receipt(dm):
                 cursor.execute(sql, (sender_id,recipient_id,))
                 result = cursor.fetchone()
                 return "Successfully inserted DM into receipts database, id " + str(result['id'])
+            
+            # Create the block.
+            # Note that the block creation _must_ come after successful receipt insertion!
+            if approved_by_id is not None:
+                api.create_block(twitter_id)
+                print("Successfully blocked @" + screen_name)
                 
         except BaseException as e:
             return "Error in insert_receipt()" + e
