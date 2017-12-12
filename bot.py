@@ -132,9 +132,6 @@ def insert_receipt(dm):
                 cursor.execute(sql, (sender_id,recipient_id,))
                 result = cursor.fetchone()
                 print("Successfully inserted DM into receipts database, id " + str(result['id']) )
-                
-                message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name
-                api.send_direct_message(sender_id, text=message)
             
             # Create the block.
             # Note that the block creation _must_ come after successful receipt insertion!
@@ -143,6 +140,9 @@ def insert_receipt(dm):
                 print("Successfully blocked @" + screen_name)
             else:
                 print("approved_by_id is \"" + str(approved_by_id) + "\"; receipt must be approved manually.")
+                
+            message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name
+            api.send_direct_message(sender_id, text=message)
                 
         except BaseException as e:
             print("Error in insert_receipt()", e)
