@@ -160,7 +160,7 @@ def check_account(twitter_id, connection, api):
                 print("Account is not in the database. Inserting new row.")
                 insert_account(twitter_id, connection, api)
             else:
-                print("Account is in the database. Updating details.")
+                print("Account is in the database. Checking for updates.")
                 update_account(twitter_id, connection, api)
             return
                 
@@ -205,6 +205,7 @@ def update_account(twitter_id, connection, api):
             
             # If difference between now() and date_updated is more than 1 day, update
             if (datetime.datetime.now().timestamp() - date_updated.timestamp())/60/60/24 > 1:
+                print("Account is out of date. Updating account.")
                 userdata = api.get_user(twitter_id)
                 name = userdata.name
                 screen_name = userdata.screen_name
@@ -220,6 +221,8 @@ def update_account(twitter_id, connection, api):
         
                 # Commit to save changes
                 connection.commit()
+            else:
+                print("Account is up to date.")
         return
     
     except BaseException as e:
