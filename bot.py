@@ -96,6 +96,7 @@ def insert_receipt(dm):
         return output
     else:
         status = get_tweet_from_url(tweet_url, api)
+        status_id = status.id
         twitter_id = status.user.id
         screen_name = status.user.screen_name
         name = status.user.name
@@ -117,15 +118,15 @@ def insert_receipt(dm):
                 # TODO: Check the db for this receipt with this blocklist before creating it.
                 # TODO: If multiple blocklists have receipts for the same status,
                 #   keep all receipts, but display them together? How to handle?
-                sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added))
+                sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`, `status_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added, status_id))
         
             # Commit to save changes
             connection.commit()
         
             with connection.cursor() as cursor:
                 # Read a single record
-                sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s LIMIT 1"
+                sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s ORDER BY `id` DESC LIMIT 1"
                 cursor.execute(sql, (sender_id,recipient_id,))
                 result = cursor.fetchone()
                 return "Successfully inserted DM into receipts database, id " + str(result['id'])
@@ -203,7 +204,7 @@ def update_account(twitter_id, connection, api):
             date_updated = result['date_updated']
             
             # If difference between now() and date_updated is more than 1 day, update
-            if (datetime.datetime.now().timestamp() - date_updated.total_seconds())/60/60/24 > 1:
+            if (datetime.datetime.now().timestamp() - date_updated.timestamp())/60/60/24 > 1:
                 userdata = api.get_user(twitter_id)
                 name = userdata.name
                 screen_name = userdata.screen_name
