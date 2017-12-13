@@ -127,26 +127,46 @@ def insert_receipt(dm):
                 sql += " `status_id`, `date_added`, `text`)"
                 sql += " VALUES (%s, %s, %s, %s, %s, %s)"
                 cursor.execute(sql, (twitter_id, sender_id, recipient_id, status_id, date_added, contents))
+                connection.commit()
                 
-                sql = "INSERT INTO `receipts`"
-                sql += " (`twitter_id`, `name`, `screen_name`, `blocklist_id`,"
-                sql += " `contents_text`, `url`, `source_user_id`,"
-                sql += " `approved_by_id`, `date_of_tweet`, `date_added`,"
-                sql += " `status_id`)"
-                sql += " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added, status_id))
-        
-            # Commit to save changes
-            connection.commit()
-        
             with connection.cursor() as cursor:
                 # Read a single record
-                sql = "SELECT `id` FROM `receipts`"
-                sql += " WHERE `source_user_id`=%s AND `blocklist_id`=%s"
+                sql = "SELECT `id` FROM `receipt_logs`"
+                sql += " WHERE `status_id`=%s AND `source_user_id`=%s"
                 sql += " ORDER BY `id` DESC LIMIT 1"
-                cursor.execute(sql, (sender_id,recipient_id,))
+                cursor.execute(sql, (status_id, sender_id))
                 result = cursor.fetchone()
-                print("Successfully inserted DM into receipts database, id " + str(result['id']) )
+                print("Successfully inserted DM into receipt logs, id " + str(result['id']) )
+                
+            # Check for existing receipt.
+            print("Checking for receipt.")
+            sql = "SELECT `id` FROM `receipts`"
+            sql += " WHERE `status_id`=%s"
+            sql += " ORDER BY `id` DESC LIMIT 1"
+            cursor.execute(sql, (status_id,))
+            result = cursor.fetchone()
+                
+            if result == None:
+                # Insert receipt
+                print("Inserting receipt.")
+                sql = "INSERT INTO `receipts`"
+                sql += " (`twitter_id`, `name`, `screen_name`,"
+                sql += " `contents_text`, `status_id`"
+                sql += " `approved_by_id`, `date_of_tweet`, `date_added`)"
+                sql += " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (twitter_id, name, screen_name, tweet_text, status_id, approved_by_id, date_of_tweet, date_added))
+            
+                # Commit to save changes
+                connection.commit()
+    
+                with connection.cursor() as cursor:
+                    # Read a single record
+                    sql = "SELECT `id` FROM `receipts`"
+                    sql += " WHERE `status_id`=%s"
+                    sql += " ORDER BY `id` DESC LIMIT 1"
+                    cursor.execute(sql, (status_id,))
+                    result = cursor.fetchone()
+                    print("Successfully inserted DM into receipts, id " + str(result['id']) )
             
             # Create the block.
             # Note that the block creation _must_ come after successful receipt insertion!
