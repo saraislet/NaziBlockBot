@@ -75,7 +75,6 @@ def insert_receipt(dm):
     recipient_id = dm['recipient_id']
     contents = dm['text']
     parsed_text = parse_end_url_from_text(contents)
-#    text = parsed_text[0]
     tweet_url = parsed_text[1]
     
     # Get API to send to methods below
@@ -94,7 +93,8 @@ def insert_receipt(dm):
         #Handle tweets without URLs
         output = "Tweet does not contain a Twitter status URL."
         output += " URL is \"" + tweet_url + "\" "
-        return output
+        print(output)
+        return
     
     else:
         status = get_tweet_from_url(tweet_url, api)
@@ -114,13 +114,19 @@ def insert_receipt(dm):
         
         try:
             with connection.cursor() as cursor:
-                # Create a new record in receipts table
+                # Create a new record in receipt_logs table
                 # TODO: Check db for this receipt & blocklist before insert.
                 # TODO: If multiple blocklists have receipts for same status,
                 #   keep all receipts, but display together? How to handle?
                 # TODO: Build an additional table to log:
                 # status_id, source_user_id, blocklist_id, date_added
                 # TODO: Remove source_user_id from this table.
+                sql = "INSERT INTO `receipt_logs`"
+                sql += " (`baddie_id`, `source_user_id`, `blocklist_id`,"
+                sql += " `status_id`, `date_added`, `text`)"
+                sql += " VALUES (%s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (twitter_id, sender_id, recipient_id, status_id, date_added, contents))
+                
                 sql = "INSERT INTO `receipts`"
                 sql += " (`twitter_id`, `name`, `screen_name`, `blocklist_id`,"
                 sql += " `contents_text`, `url`, `source_user_id`,"
