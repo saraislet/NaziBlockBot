@@ -115,23 +115,40 @@ def insert_receipt(dm):
         
         try:
             with connection.cursor() as cursor:
-                # Create a new record in receipt_logs table
-                sql = "INSERT INTO `receipt_logs`"
-                sql += " (`baddie_id`, `source_user_id`, `blocklist_id`,"
-                sql += " `status_id`, `date_added`, `text`)"
-                sql += " VALUES (%s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (twitter_id, sender_id, recipient_id, 
-                                     status_id, date_added, contents))
-                connection.commit()
-                
-            with connection.cursor() as cursor:
-                # Read a single record
+                # Check for existing receipt log.
+                print("Checking for receipt log.")
                 sql = "SELECT `id` FROM `receipt_logs`"
                 sql += " WHERE `status_id`=%s AND `source_user_id`=%s"
                 sql += " ORDER BY `id` DESC LIMIT 1"
                 cursor.execute(sql, (status_id, sender_id))
                 result = cursor.fetchone()
-                print("Successfully inserted DM into receipt_logs, id " + str(result['id']) )
+            
+                if result == None:
+                    # Insert receipt
+                    print("Inserting receipt log.")
+                    sql = "INSERT INTO `receipt_logs`"
+                    sql += " (`baddie_id`, `source_user_id`, `blocklist_id`,"
+                    sql += " `status_id`, `date_added`, `text`)"
+                    sql += " VALUES (%s, %s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (twitter_id, sender_id, recipient_id, 
+                                         status_id, date_added, contents))
+                    connection.commit()
+                    
+                    # Check that receipt log was inserted.
+                    sql = "SELECT `id` FROM `receipt_logs`"
+                    sql += " WHERE `status_id`=%s AND `source_user_id`=%s"
+                    sql += " ORDER BY `id` DESC LIMIT 1"
+                    cursor.execute(sql, (status_id, sender_id))
+                    result = cursor.fetchone()
+                    print("Successfully inserted DM into receipt_logs, id " + str(result['id']) )
+                    
+                else:
+                    print("Sender has already reported this tweet.")
+                    message = "You've already reported this receipt: "
+                    message += host + "/search/" + screen_name + "?show_all=True"
+                    api.send_direct_message(sender_id, text=message)
+                    connection.close()
+                    return
                 
                 # Check for existing receipt.
                 print("Checking for receipt.")
@@ -156,14 +173,19 @@ def insert_receipt(dm):
                     # Commit to save changes
                     connection.commit()
         
-                    with connection.cursor() as cursor:
-                        # Read a single record
-                        sql = "SELECT `id` FROM `receipts`"
-                        sql += " WHERE `status_id`=%s"
-                        sql += " ORDER BY `id` DESC LIMIT 1"
-                        cursor.execute(sql, (status_id,))
-                        result = cursor.fetchone()
-                        print("Successfully inserted DM into receipts, id " + str(result['id']) )
+                    # Read a single record
+                    sql = "SELECT `id` FROM `receipts`"
+                    sql += " WHERE `status_id`=%s"
+                    sql += " ORDER BY `id` DESC LIMIT 1"
+                    cursor.execute(sql, (status_id,))
+                    result = cursor.fetchone()
+                    print("Successfully inserted DM into receipts, id " + str(result['id']) )
+                
+                else:
+                    print("This receipt was already in Receiptacle.")
+                    message = "Thank you. This receipt was already in Receiptacle: "
+                    message += host + "/search/" + screen_name + "?show_all=True"
+                    api.send_direct_message(sender_id, text=message)
             
             # Create the block.
             # Note that block creation _must_ come after successful insertion!
@@ -175,8 +197,9 @@ def insert_receipt(dm):
                 output += "\"; receipt must be approved manually."
                 print(output)
                 
-            message = "Thank you. Receipts database updated: "
-            message += host + "/search/" + screen_name + "?show_all=True"
+            if message == "" or message is None:
+                message = "Thank you. Receipts database updated: "
+                message += host + "/search/" + screen_name + "?show_all=True"
             api.send_direct_message(sender_id, text=message)
                 
         except BaseException as e:
