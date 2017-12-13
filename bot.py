@@ -120,6 +120,7 @@ def insert_receipt(dm):
                 #   keep all receipts, but display together? How to handle?
                 # TODO: Build an additional table to log:
                 # status_id, source_user_id, blocklist_id, date_added
+                # TODO: Remove source_user_id from this table.
                 sql = "INSERT INTO `receipts`"
                 sql += " (`twitter_id`, `name`, `screen_name`, `blocklist_id`,"
                 sql += " `contents_text`, `url`, `source_user_id`,"
