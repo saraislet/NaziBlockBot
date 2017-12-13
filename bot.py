@@ -51,7 +51,9 @@ class StdOutListener( StreamListener ):
         dm = json.loads(status).get('direct_message')
         
         if dm != None and dm['sender_id'] != my_id:
-            print("DM from " + dm['sender_screen_name'] + ": \"" + unshorten_urls_in_text(dm['text']) + "\"")
+            output = "DM from " + dm['sender_screen_name'] + ": \""
+            output += unshorten_urls_in_text(dm['text']) + "\""
+            print(output)
             insert_receipt(dm)
         
         return True
@@ -126,7 +128,8 @@ def insert_receipt(dm):
                 sql += " (`baddie_id`, `source_user_id`, `blocklist_id`,"
                 sql += " `status_id`, `date_added`, `text`)"
                 sql += " VALUES (%s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (twitter_id, sender_id, recipient_id, status_id, date_added, contents))
+                cursor.execute(sql, (twitter_id, sender_id, recipient_id, 
+                                     status_id, date_added, contents))
                 connection.commit()
                 
             with connection.cursor() as cursor:
@@ -136,45 +139,49 @@ def insert_receipt(dm):
                 sql += " ORDER BY `id` DESC LIMIT 1"
                 cursor.execute(sql, (status_id, sender_id))
                 result = cursor.fetchone()
-                print("Successfully inserted DM into receipt logs, id " + str(result['id']) )
+                print("Successfully inserted DM into receipt_logs, id " + str(result['id']) )
                 
-            # Check for existing receipt.
-            print("Checking for receipt.")
-            sql = "SELECT `id` FROM `receipts`"
-            sql += " WHERE `status_id`=%s"
-            sql += " ORDER BY `id` DESC LIMIT 1"
-            cursor.execute(sql, (status_id,))
-            result = cursor.fetchone()
+                # Check for existing receipt.
+                print("Checking for receipt.")
+                sql = "SELECT `id` FROM `receipts`"
+                sql += " WHERE `status_id`=%s"
+                sql += " ORDER BY `id` DESC LIMIT 1"
+                cursor.execute(sql, (status_id,))
+                result = cursor.fetchone()
                 
-            if result == None:
-                # Insert receipt
-                print("Inserting receipt.")
-                sql = "INSERT INTO `receipts`"
-                sql += " (`twitter_id`, `name`, `screen_name`,"
-                sql += " `contents_text`, `status_id`"
-                sql += " `approved_by_id`, `date_of_tweet`, `date_added`)"
-                sql += " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (twitter_id, name, screen_name, tweet_text, status_id, approved_by_id, date_of_tweet, date_added))
-            
-                # Commit to save changes
-                connection.commit()
-    
-                with connection.cursor() as cursor:
-                    # Read a single record
-                    sql = "SELECT `id` FROM `receipts`"
-                    sql += " WHERE `status_id`=%s"
-                    sql += " ORDER BY `id` DESC LIMIT 1"
-                    cursor.execute(sql, (status_id,))
-                    result = cursor.fetchone()
-                    print("Successfully inserted DM into receipts, id " + str(result['id']) )
+                if result == None:
+                    # Insert receipt
+                    print("Inserting receipt.")
+                    sql = "INSERT INTO `receipts`"
+                    sql += " (`twitter_id`, `name`, `screen_name`,"
+                    sql += " `contents_text`, `status_id`"
+                    sql += " `approved_by_id`, `date_of_tweet`, `date_added`)"
+                    sql += " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (twitter_id, name, screen_name, 
+                                         tweet_text, status_id, approved_by_id, 
+                                         date_of_tweet, date_added))
+                
+                    # Commit to save changes
+                    connection.commit()
+        
+                    with connection.cursor() as cursor:
+                        # Read a single record
+                        sql = "SELECT `id` FROM `receipts`"
+                        sql += " WHERE `status_id`=%s"
+                        sql += " ORDER BY `id` DESC LIMIT 1"
+                        cursor.execute(sql, (status_id,))
+                        result = cursor.fetchone()
+                        print("Successfully inserted DM into receipts, id " + str(result['id']) )
             
             # Create the block.
-            # Note that the block creation _must_ come after successful receipt insertion!
+            # Note that block creation _must_ come after successful insertion!
             if approved_by_id is not None:
                 api.create_block(twitter_id)
                 print("Successfully blocked @" + screen_name)
             else:
-                print("approved_by_id is \"" + str(approved_by_id) + "\"; receipt must be approved manually.")
+                output = "approved_by_id is \"" + str(approved_by_id)
+                output += "\"; receipt must be approved manually."
+                print(output)
                 
             message = "Thank you. Receipts database updated: "
             message += host + "/search/" + screen_name + "?show_all=True"
@@ -194,7 +201,8 @@ def check_account(twitter_id, connection, api):
     try:    
         with connection.cursor() as cursor:
             # Read a single record
-            sql = "SELECT `twitter_id` FROM `accounts` WHERE `twitter_id`=%s LIMIT 1"
+            sql = "SELECT `twitter_id` FROM `accounts`"
+            sql += " WHERE `twitter_id`=%s LIMIT 1"
             cursor.execute(sql, (twitter_id,))
             result = cursor.fetchone()
             
@@ -226,12 +234,13 @@ def insert_account(twitter_id, connection, api):
             sql = "INSERT INTO `accounts`"
             sql += " (`twitter_id`, `name`, `screen_name`, `description`,"
             sql += " `url`, `date_updated`) VALUES (%s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now(),))
+            cursor.execute(sql, (twitter_id, name, screen_name, 
+                                 description, url, datetime.datetime.now(),))
         
             # Commit to save changes
             connection.commit()
     
-            print("Successfully inserted @" + screen_name + " into accounts table.")
+            print("Successfully inserted @" + screen_name + " into accounts.")
             return
 
     except BaseException as e:
@@ -248,9 +257,11 @@ def update_account(twitter_id, connection, api):
             cursor.execute(sql, (twitter_id,))
             result = cursor.fetchone()
             date_updated = result['date_updated']
+            now = datetime.datetime.now()
             
             # If difference between now() and date_updated is more than 1 day, update
-            if (datetime.datetime.now().timestamp() - date_updated.timestamp())/60/60/24 > 1:
+            delta = now.timestamp() - date_updated.timestamp()
+            if delta/60/60/24 > 1:
                 print("Account is out of date. Updating account.")
                 userdata = api.get_user(twitter_id)
                 name = userdata.name
@@ -263,8 +274,10 @@ def update_account(twitter_id, connection, api):
                     sql = "UPDATE `accounts` WHERE `twitter_id`=%s LIMIT 1"
                     sql += " SET `name`=%s, `screen_name`=%s,"
                     sql += " `description`=%s, `url`=%s, `date_updated`=%s"
-                    cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now(),))
-                    print("Successfully updated @" + screen_name + " from accounts table.")
+                    cursor.execute(sql, (twitter_id, name, screen_name, 
+                                         description, url, 
+                                         now,))
+                    print("Successfully updated @" + screen_name + " from accounts.")
         
                 # Commit to save changes
                 connection.commit()
