@@ -50,7 +50,7 @@ class StdOutListener( StreamListener ):
         global dm
         dm = json.loads(status).get('direct_message')
         
-        if dm != None and dm.sender_id != my_id:
+        if dm != None and dm['sender_id'] != my_id:
             print("DM from " + dm['sender_screen_name'] + ": \"" + unshorten_urls_in_text(dm['text']) + "\"")
             insert_receipt(dm)
         
