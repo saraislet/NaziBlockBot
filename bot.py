@@ -190,7 +190,6 @@ def insert_receipt(dm):
                     print("This receipt was already in Receiptacle.")
                     message = "Thank you. This receipt was already in Receiptacle: "
                     message += host + "/search/" + screen_name + "?show_all=True"
-                    api.send_direct_message(sender_id, text=message)
             
             # Create the block.
             # Note that block creation _must_ come after successful insertion!
