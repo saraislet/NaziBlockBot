@@ -17,6 +17,7 @@ access_token = os.environ['access_token']
 access_token_secret = os.environ['access_token_secret']
 
 host = "https://young-meadow-72614.herokuapp.com"
+my_id = 916081822819270656
 
 def db_connect():
     # Connect to the database
@@ -49,7 +50,7 @@ class StdOutListener( StreamListener ):
         global dm
         dm = json.loads(status).get('direct_message')
         
-        if dm != None:
+        if dm != None and dm.sender_id != my_id:
             print("DM from " + dm['sender_screen_name'] + ": \"" + unshorten_urls_in_text(dm['text']) + "\"")
             insert_receipt(dm)
         
