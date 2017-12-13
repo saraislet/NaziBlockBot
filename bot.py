@@ -107,9 +107,7 @@ def insert_receipt(dm):
         date_of_tweet = status.created_at
         date_added = datetime.datetime.now()
         
-        #TODO: add status_id to db, 
-        #   store status.id as status_id, and stop storing URL,
-        #   and construct URL from status_id on front-end of Receiptacle
+        #TODO: stop storing URL; construct URL from status_id on front-end
 
         # Add or update the twitter account in the accounts table.
         check_account(twitter_id, connection, api)
@@ -117,10 +115,17 @@ def insert_receipt(dm):
         try:
             with connection.cursor() as cursor:
                 # Create a new record in receipts table
-                # TODO: Check the db for this receipt with this blocklist before creating it.
-                # TODO: If multiple blocklists have receipts for the same status,
-                #   keep all receipts, but display them together? How to handle?
-                sql = "INSERT INTO `receipts` (`twitter_id`, `name`, `screen_name`, `blocklist_id`, `contents_text`, `url`, `source_user_id`, `approved_by_id`, `date_of_tweet`, `date_added`, `status_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                # TODO: Check db for this receipt & blocklist before insert.
+                # TODO: If multiple blocklists have receipts for same status,
+                #   keep all receipts, but display together? How to handle?
+                # TODO: Build an additional table to log:
+                # status_id, source_user_id, blocklist_id, date_added
+                sql = "INSERT INTO `receipts`"
+                sql += " (`twitter_id`, `name`, `screen_name`, `blocklist_id`,"
+                sql += " `contents_text`, `url`, `source_user_id`,"
+                sql += " `approved_by_id`, `date_of_tweet`, `date_added`,"
+                sql += " `status_id`)"
+                sql += " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                 cursor.execute(sql, (twitter_id, name, screen_name, recipient_id, tweet_text, tweet_url, sender_id, approved_by_id, date_of_tweet, date_added, status_id))
         
             # Commit to save changes
@@ -128,7 +133,9 @@ def insert_receipt(dm):
         
             with connection.cursor() as cursor:
                 # Read a single record
-                sql = "SELECT `id` FROM `receipts` WHERE `source_user_id`=%s AND `blocklist_id`=%s ORDER BY `id` DESC LIMIT 1"
+                sql = "SELECT `id` FROM `receipts`"
+                sql += " WHERE `source_user_id`=%s AND `blocklist_id`=%s"
+                sql += " ORDER BY `id` DESC LIMIT 1"
                 cursor.execute(sql, (sender_id,recipient_id,))
                 result = cursor.fetchone()
                 print("Successfully inserted DM into receipts database, id " + str(result['id']) )
@@ -141,7 +148,8 @@ def insert_receipt(dm):
             else:
                 print("approved_by_id is \"" + str(approved_by_id) + "\"; receipt must be approved manually.")
                 
-            message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name + "?show_all=True"
+            message = "Thank you. Receipts database updated: "
+            message += host + "/search/" + screen_name + "?show_all=True"
             api.send_direct_message(sender_id, text=message)
                 
         except BaseException as e:
@@ -187,7 +195,9 @@ def insert_account(twitter_id, connection, api):
     try:
         with connection.cursor() as cursor:
             # Create a new record in accounts table
-            sql = "INSERT INTO `accounts` (`twitter_id`, `name`, `screen_name`, `description`, `url`, `date_updated`) VALUES (%s, %s, %s, %s, %s, %s)"
+            sql = "INSERT INTO `accounts`"
+            sql += " (`twitter_id`, `name`, `screen_name`, `description`,"
+            sql += " `url`, `date_updated`) VALUES (%s, %s, %s, %s, %s, %s)"
             cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now(),))
         
             # Commit to save changes
@@ -205,7 +215,8 @@ def update_account(twitter_id, connection, api):
     try:
         with connection.cursor() as cursor:
             # Read a single record
-            sql = "SELECT `date_updated` FROM `accounts` WHERE `twitter_id`=%s LIMIT 1"
+            sql = "SELECT `date_updated` FROM `accounts`"
+            sql += " WHERE `twitter_id`=%s LIMIT 1"
             cursor.execute(sql, (twitter_id,))
             result = cursor.fetchone()
             date_updated = result['date_updated']
@@ -222,7 +233,8 @@ def update_account(twitter_id, connection, api):
                 with connection.cursor() as cursor:
                     # Update a record in accounts table
                     sql = "UPDATE `accounts` WHERE `twitter_id`=%s LIMIT 1"
-                    sql += " SET `name` = %s, `screen_name` = %s, `description` = %s, `url` = %s, `date_updated` = %s"
+                    sql += " SET `name`=%s, `screen_name`=%s,"
+                    sql += " `description`=%s, `url`=%s, `date_updated`=%s"
                     cursor.execute(sql, (twitter_id, name, screen_name, description, url, datetime.datetime.now(),))
                     print("Successfully updated @" + screen_name + " from accounts table.")
         
@@ -241,7 +253,8 @@ def verify_blocklist_admin(twitter_id, blocklist_id, connection):
     try:    
         with connection.cursor() as cursor:
             # Read a single record
-            sql = "SELECT `id` FROM `blocklist_admins` WHERE `admin_id`=%s AND `blocklist_id`=%s LIMIT 1"
+            sql = "SELECT `id` FROM `blocklist_admins`"
+            sql += " WHERE `admin_id`=%s AND `blocklist_id`=%s LIMIT 1"
             cursor.execute(sql, (twitter_id, blocklist_id,))
             result = cursor.fetchone()
             
