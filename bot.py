@@ -97,6 +97,10 @@ def insert_receipt(dm):
         output = "Tweet does not contain a Twitter status URL."
         output += " URL is \"" + tweet_url + "\" "
         print(output)
+        
+        message = "Please send me a tweet directly."
+        message += " Your message must contain a tweet URL."
+        api.send_direct_message(sender_id, text=message)
         return
     
     else:
@@ -109,6 +113,7 @@ def insert_receipt(dm):
         tweet_text = remove_ats(tweet)
         date_of_tweet = status.created_at
         date_added = datetime.datetime.now()
+        message = ""
         
         # Add or update the twitter account in the accounts table.
         check_account(twitter_id, connection, api)
@@ -197,7 +202,7 @@ def insert_receipt(dm):
                 output += "\"; receipt must be approved manually."
                 print(output)
                 
-            if message == "" or message is None:
+            if message == "":
                 message = "Thank you. Receipts database updated: "
                 message += host + "/search/" + screen_name + "?show_all=True"
             api.send_direct_message(sender_id, text=message)
