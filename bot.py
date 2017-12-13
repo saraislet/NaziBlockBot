@@ -33,7 +33,7 @@ def db_connect():
 class StdOutListener( StreamListener ):
 
     def __init__( self ):
-        self.tweetCount = 0
+        pass
 
     def on_connect( self ):
         print("Connection established!")
@@ -141,7 +141,7 @@ def insert_receipt(dm):
             else:
                 print("approved_by_id is \"" + str(approved_by_id) + "\"; receipt must be approved manually.")
                 
-            message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name
+            message = "Thank you. Receipts database updated: " + host + "/search/" + screen_name + "?show_all=True"
             api.send_direct_message(sender_id, text=message)
                 
         except BaseException as e:
