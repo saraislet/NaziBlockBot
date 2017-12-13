@@ -149,9 +149,7 @@ def insert_receipt(dm):
                     sql += " contents_text, status_id"
                     sql += " approved_by_id, date_of_tweet, date_added)"
                     sql += " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-                    cursor.execute(sql, (twitter_id, name, screen_name, 
-                                         tweet_text, status_id, approved_by_id, 
-                                         date_of_tweet, date_added))
+                    cursor.execute(sql, (twitter_id, name, screen_name, tweet_text, status_id, approved_by_id, date_of_tweet, date_added))
                 
                     # Commit to save changes
                     connection.commit()
