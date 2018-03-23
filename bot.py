@@ -5,6 +5,7 @@ Created on Thu Oct  5 16:50:36 2017
 @author: Sarai
 """
 
+import random
 import json, os, re, requests, datetime
 import tweepy
 from tweepy.streaming import StreamListener
@@ -15,9 +16,16 @@ consumer_key = os.environ['consumer_key']
 consumer_secret = os.environ['consumer_secret']
 access_token = os.environ['access_token']
 access_token_secret = os.environ['access_token_secret']
+blocklist_id = os.environ['blocklist_id']
 
-host = "https://young-meadow-72614.herokuapp.com"
-my_id = 916081822819270656
+host = "http://www.receiptacle.org"
+
+TYs = ["Thank you. Receipts database updated: ",
+       "Thank you! Added this receipt: ",
+       "Thanks! Updated receipts database: ",
+       "TY. Receiptacle updated: ",
+       "Added to Receiptacle, TY: "]
+
 
 def db_connect():
     # Connect to the database
@@ -50,7 +58,7 @@ class StdOutListener( StreamListener ):
         global dm
         dm = json.loads(status).get('direct_message')
         
-        if dm != None and dm['sender_id'] != my_id:
+        if dm != None and dm['sender_id'] != blocklist_id:
             output = "DM from " + dm['sender_screen_name'] + ": \""
             output += unshorten_urls_in_text(dm['text']) + "\""
             print(output)
@@ -129,7 +137,7 @@ def insert_receipt(dm):
                 result = cursor.fetchone()
             
                 if result == None:
-                    # Insert receipt
+                    # Insert receipt log
                     print("Inserting receipt log.")
                     sql = "INSERT INTO `receipt_logs`"
                     sql += " (`baddie_id`, `source_user_id`, `blocklist_id`,"
@@ -202,7 +210,7 @@ def insert_receipt(dm):
                 print(output)
                 
             if message == "":
-                message = "Thank you. Receipts database updated: "
+                message = random.choice(TYs)
                 message += host + "/search/" + screen_name + "?show_all=True"
             api.send_direct_message(sender_id, text=message)
                 
@@ -230,8 +238,8 @@ def check_account(twitter_id, connection, api):
                 print("Account is not in the database. Inserting new row.")
                 insert_account(twitter_id, connection, api)
             else:
-                print("Account is in the database. Checking for updates.")
-                update_account(twitter_id, connection, api)
+                print("Account is in the database.")
+                #update_account(twitter_id, connection, api)
             return
                 
     except BaseException as e:
