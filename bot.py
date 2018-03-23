@@ -409,23 +409,19 @@ def get_api():
 
 def main():
 
-    try:
-        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-        auth.secure = True
-        auth.set_access_token(access_token, access_token_secret)
+    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+    auth.secure = True
+    auth.set_access_token(access_token, access_token_secret)
 
-        api = tweepy.API(auth)
+    api = tweepy.API(auth)
 
-        # If the authentication was successful, you should
-        # see the name of the account print out
-        print(api.me().name)
+    # If the authentication was successful, you should
+    # see the name of the account print out
+    print(api.me().name)
 
-        stream = tweepy.Stream(auth, StdOutListener())
+    stream = tweepy.Stream(auth, StdOutListener())
 
-        stream.userstream()
-
-    except BaseException as e:
-        print("Error in main()", e)
+    stream.userstream()
 
 if __name__ == '__main__':
     main()
