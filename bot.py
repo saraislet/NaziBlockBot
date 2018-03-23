@@ -59,6 +59,7 @@ class StdOutListener( StreamListener ):
         dm = json.loads(status).get('direct_message')
         
         if dm != None and dm['sender_id'] != blocklist_id:
+            print("sender_id: ", dm['sender_id'])
             output = "DM from " + dm['sender_screen_name'] + ": \""
             output += unshorten_urls_in_text(dm['text']) + "\""
             print(output)
@@ -160,7 +161,6 @@ def insert_receipt(dm):
                     message = "You've already reported this receipt: "
                     message += host + "/search/" + screen_name + "?show_all=True"
                     api.send_direct_message(sender_id, text=message)
-                    connection.close()
                     return
                 
                 # Check for existing receipt.
