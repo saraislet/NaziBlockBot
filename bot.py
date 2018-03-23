@@ -26,6 +26,24 @@ TYs = ["Thank you. Receipts database updated: ",
        "TY. Receiptacle updated: ",
        "Added to Receiptacle, TY: "]
 
+NO_TWITTER_URL = ["Tweet does not contain a Twitter status URL.",
+                  "Tweet does not contain link to a Twitter status.",
+                  "Tweet doesn't include a Twitter status URL."]
+
+NO_TWITTER_URL = ["Please send me a tweet directly.\
+                    Your message must contain a tweet URL.",
+                   "Please DM a tweet to me directly.\
+                    Your message must include a tweet URL.",
+                   "Please DM a tweet to me.\
+                    Include a tweet URL in your message."]
+
+ALREADY_REPORTED = ["You've already reported this receipt: ",
+                    "You already sent this to me: ",
+                    "This is in Receiptacle: "]
+
+ALREADY_RECEIPT = ["Thank you. This receipt is in the database: ",
+                   "Thanks! This receipt is in Receiptacle: ",
+                   "TY. Receipt on Receiptacle: "]
 
 def db_connect():
     # Connect to the database
@@ -58,8 +76,7 @@ class StdOutListener( StreamListener ):
         global dm
         dm = json.loads(status).get('direct_message')
         
-        if dm != None and dm['sender_id'] != blocklist_id:
-            print("sender_id: ", dm['sender_id'])
+        if dm != None and str(dm['sender_id']) != str(blocklist_id):
             output = "DM from " + dm['sender_screen_name'] + ": \""
             output += unshorten_urls_in_text(dm['text']) + "\""
             print(output)
@@ -107,8 +124,7 @@ def insert_receipt(dm):
         output += " URL is \"" + tweet_url + "\" "
         print(output)
         
-        message = "Please send me a tweet directly."
-        message += " Your message must contain a tweet URL."
+        message = random.choice(NO_TWITTER_URL)
         api.send_direct_message(sender_id, text=message)
         return
     
@@ -158,7 +174,7 @@ def insert_receipt(dm):
                     
                 else:
                     print("Sender has already reported this tweet.")
-                    message = "You've already reported this receipt: "
+                    message = random.choice(ALREADY_REPORTED)
                     message += host + "/search/" + screen_name + "?show_all=True"
                     api.send_direct_message(sender_id, text=message)
                     return
@@ -196,7 +212,7 @@ def insert_receipt(dm):
                 
                 else:
                     print("This receipt was already in Receiptacle.")
-                    message = "Thank you. This receipt was already in Receiptacle: "
+                    message = random.choice(ALREADY_RECEIPT)
                     message += host + "/search/" + screen_name + "?show_all=True"
             
             # Create the block.
