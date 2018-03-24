@@ -81,7 +81,7 @@ class StdOutListener( StreamListener ):
         dm = json.loads(status).get('direct_message')
         
         if dm != None and str(dm['sender_id']) != str(blocklist_id):
-            output = dm['id'] + ": DM from " + dm['sender_screen_name'] + ": \""
+            output = str(dm['id']) + ": DM from " + dm['sender_screen_name'] + ": \""
             output += dm['text'] + "\""
             print(output)
             handle_dm(dm)
