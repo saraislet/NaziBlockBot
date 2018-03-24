@@ -34,12 +34,12 @@ NO_TWITTER_URL = ["Tweet does not contain a Twitter status URL.",
                   "Tweet does not contain link to a Twitter status.",
                   "Tweet doesn't include a Twitter status URL."]
 
-NO_TWITTER_URL = ["Please send me a tweet directly.\
-                    Your message must contain a tweet URL.",
-                   "Please DM a tweet to me directly.\
-                    Your message must include a tweet URL.",
-                   "Please DM a tweet to me.\
-                    Include a tweet URL in your message."]
+NO_TWITTER_URL = ["Please send me a tweet directly."
+                  + "Your message must contain a tweet URL.",
+                  "Please DM a tweet to me directly."
+                  + "Your message must include a tweet URL.",
+                  "Please DM a tweet to me."
+                  + "Include a tweet URL in your message."]
 
 ALREADY_REPORTED = ["You've already reported this receipt: ",
                     "You already sent this to me: ",
