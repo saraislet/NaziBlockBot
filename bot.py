@@ -116,10 +116,7 @@ def handle_dm(dm):
                    tweet_url=tweet_url)
 
 
-def insert_receipt(sender_id=sender_id,
-                   recipient_id=recipient_id,
-                   contents=contents,
-                   tweet_url=tweet_url):
+def insert_receipt(sender_id, recipient_id, contents, tweet_url):
     
     # Get API to send to methods below
     # alternate api
