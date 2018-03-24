@@ -74,17 +74,17 @@ class StdOutListener( StreamListener ):
 
     def on_data( self, status ):
         print("Entered on_data()")
-        global current_status
+        # global current_status
         current_status = status
         
-        global dm
+        # global dm
         dm = json.loads(status).get('direct_message')
         
         if dm != None and str(dm['sender_id']) != str(blocklist_id):
-            output = "DM from " + dm['sender_screen_name'] + ": \""
-            output += unshorten_urls_in_text(dm['text']) + "\""
+            output = dm['id'] + ": DM from " + dm['sender_screen_name'] + ": \""
+            output += dm['text'] + "\""
             print(output)
-            insert_receipt(dm)
+            handle_dm(dm)
         
         return True
 
@@ -100,7 +100,7 @@ class StdOutListener( StreamListener ):
         print(status)
 
 
-def insert_receipt(dm):
+def handle_dm(dm):
     # TODO: Improve error handling here.
     
     # Insert DM contents into DB receipts table
@@ -109,6 +109,17 @@ def insert_receipt(dm):
     contents = dm['text']
     parsed_text = parse_end_url_from_text(contents)
     tweet_url = parsed_text[1]
+
+    insert_receipt(sender_id=sender_id,
+                   recipient_id=recipient_id,
+                   contents=contents,
+                   tweet_url=tweet_url)
+
+
+def insert_receipt(sender_id=sender_id,
+                   recipient_id=recipient_id,
+                   contents=contents,
+                   tweet_url=tweet_url):
     
     # Get API to send to methods below
     # alternate api
@@ -388,12 +399,13 @@ def parse_end_url_from_text(string):
     # Return an array with text and url from the string of a DM.
     
     # Match any URL beginning "http" at the end of string text.
-    match = re.match(r'(.?)\s?(http\S*)$', string)
+    expanded_string = unshorten_urls_in_text(string)
+    match = re.match(r'(.?)\s?(http\S*)$', expanded_string)
 
     if match != None:
         text = match.group(1)
         url = match.group(2)
-        return [text, unshorten_url(url)]
+        return [text, url]
     else:
         return [string, ""]
 
