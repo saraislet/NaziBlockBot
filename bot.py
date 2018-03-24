@@ -10,12 +10,16 @@ import json, os, re, requests, datetime
 import tweepy
 from tweepy.streaming import StreamListener
 import pymysql.cursors
-#import config_local as config
 
-consumer_key = os.environ['consumer_key']
-consumer_secret = os.environ['consumer_secret']
-access_token = os.environ['access_token']
-access_token_secret = os.environ['access_token_secret']
+if not os.environ.get("consumer_key"):
+    import secrets
+
+blocklist_consumer_key = os.environ['consumer_key']
+blocklist_consumer_secret = os.environ['consumer_secret']
+alternate_consumer_key = os.environ['consumer_key2']
+alternate_consumer_secret = os.environ['consumer_secret2']
+blocklist_access_token = os.environ['access_token']
+blocklist_access_token_secret = os.environ['access_token_secret']
 blocklist_id = os.environ['blocklist_id']
 
 host = "http://www.receiptacle.org"
@@ -107,15 +111,22 @@ def insert_receipt(dm):
     tweet_url = parsed_text[1]
     
     # Get API to send to methods below
-    api = get_api()
+    # alternate api
+    api = get_twitter_api(alternate_consumer_key,
+                          alternate_consumer_secret)
+
+    # blocklist_api is the blocklist account api,
+    # for checking and sending DMs, and for creating blocks
+    blocklist_api = get_twitter_auth_api(blocklist_consumer_key,
+                                         blocklist_consumer_secret,
+                                         blocklist_access_token,
+                                         blocklist_access_token_secret)
     connection = db_connect()
 
+    approved_by_id = None
     # Test if the sender is a blocklist admin.
     if verify_blocklist_admin(sender_id, recipient_id, connection):
-        approved_by_id = sender_id
-        
-    else:
-        approved_by_id = None
+        approved_by_id = sender_id        
         
     # Test if DM contains a Twitter Status, then pull data from API.
     if verify_twitter_status_url(tweet_url) == False:
@@ -125,7 +136,7 @@ def insert_receipt(dm):
         print(output)
         
         message = random.choice(NO_TWITTER_URL)
-        api.send_direct_message(sender_id, text=message)
+        blocklist_api.send_direct_message(sender_id, text=message)
         return
     
     else:
@@ -176,7 +187,7 @@ def insert_receipt(dm):
                     print("Sender has already reported this tweet.")
                     message = random.choice(ALREADY_REPORTED)
                     message += host + "/search/" + screen_name + "?show_all=True"
-                    api.send_direct_message(sender_id, text=message)
+                    blocklist_api.send_direct_message(sender_id, text=message)
                     return
                 
                 # Check for existing receipt.
@@ -218,7 +229,7 @@ def insert_receipt(dm):
             # Create the block.
             # Note that block creation _must_ come after successful insertion!
             if approved_by_id is not None:
-                api.create_block(twitter_id)
+                blocklist_api.create_block(twitter_id)
                 print("Successfully blocked @" + screen_name)
             else:
                 output = "approved_by_id is \"" + str(approved_by_id)
@@ -228,7 +239,7 @@ def insert_receipt(dm):
             if message == "":
                 message = random.choice(TYs)
                 message += host + "/search/" + screen_name + "?show_all=True"
-            api.send_direct_message(sender_id, text=message)
+            blocklist_api.send_direct_message(sender_id, text=message)
                 
         except BaseException as e:
             print("Error in insert_receipt()", e)
@@ -291,7 +302,7 @@ def insert_account(twitter_id, connection, api):
         return
 
 def update_account(twitter_id, connection, api):
-    # Test if account should be updated, and update if necessary.
+    # Test if account should be updated; update if necessary.
     try:
         with connection.cursor() as cursor:
             # Read a single record
@@ -302,30 +313,31 @@ def update_account(twitter_id, connection, api):
             date_updated = result['date_updated']
             now = datetime.datetime.now()
             
-            # If difference between now() and date_updated is more than 1 day, update
-            delta = now.timestamp() - date_updated.timestamp()
-            if delta/60/60/24 > 1:
-                print("Account is out of date. Updating account.")
-                userdata = api.get_user(twitter_id)
-                name = userdata.name
-                screen_name = userdata.screen_name
-                description = userdata.description
-                url = unshorten_url(userdata.url)
-                
-                with connection.cursor() as cursor:
-                    # Update a record in accounts table
-                    sql = "UPDATE `accounts` WHERE `twitter_id`=%s LIMIT 1"
-                    sql += " SET `name`=%s, `screen_name`=%s,"
-                    sql += " `description`=%s, `url`=%s, `date_updated`=%s"
-                    cursor.execute(sql, (twitter_id, name, screen_name, 
-                                         description, url, 
-                                         now,))
-                    print("Successfully updated @" + screen_name + " from accounts.")
+        # If delta is more than 1 week, update
+        delta = now.timestamp() - date_updated.timestamp()
+        if delta/60/60/24/7 < 1:
+            print("Account is up to date.")
+            return
+
+        print("Account is out of date. Updating account.")
+        userdata = api.get_user(twitter_id)
+        name = userdata.name
+        screen_name = userdata.screen_name
+        description = userdata.description
+        url = unshorten_url(userdata.url)
         
-                # Commit to save changes
-                connection.commit()
-            else:
-                print("Account is up to date.")
+        with connection.cursor() as cursor:
+            # Update a record in accounts table
+            sql = "UPDATE `accounts` WHERE `twitter_id`=%s LIMIT 1"
+            sql += " SET `name`=%s, `screen_name`=%s,"
+            sql += " `description`=%s, `url`=%s, `date_updated`=%s"
+            cursor.execute(sql, (twitter_id, name, screen_name, 
+                                 description, url, 
+                                 now,))
+            print("Successfully updated @" + screen_name + " from accounts.")
+
+        # Commit to save changes
+        connection.commit()
         return
     
     except BaseException as e:
@@ -415,19 +427,27 @@ def remove_ats(tweet):
     return re.sub(r'^(@\S+\s)*', "", tweet)
 
 
-def get_api():
+def get_twitter_auth_api(consumer_key, consumer_secret,
+                         access_token, access_token_secret):
     # Return tweepy oauth api
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.secure = True
     auth.set_access_token(access_token, access_token_secret)
+    return tweepy.API(auth)
+
+
+def get_twitter_api(consumer_key, consumer_secret):
+    # Return tweepy api
+    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+    # auth.set_access_token(access_token, access_token_secret)
     return tweepy.API(auth)
 
 
 def main():
 
-    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.secure = True
-    auth.set_access_token(access_token, access_token_secret)
+    auth = tweepy.OAuthHandler(blocklist_consumer_key,
+                               blocklist_consumer_secret)
+    auth.set_access_token(blocklist_access_token,
+                          blocklist_access_token_secret)
 
     api = tweepy.API(auth)
 
